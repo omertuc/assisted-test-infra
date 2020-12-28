@@ -33,6 +33,24 @@ class NodeController:
     def format_all_node_disks(self) -> None:
         raise NotImplementedError
 
+    def attach_disk(self, node_name, disk_size):
+        """
+        Attaches a disk
+        :param node_name: Node to attach disk to
+        :param disk_size: Size of disk to attach
+        :return: Path to the temp disk file and a randomly generated disk alias, to be used later detaching the disk
+        """
+        raise NotImplementedError
+
+    def detach_disk(self, node_name, disk_alias):
+        """
+        Detach a disk from a given node
+        :param node_name: Node to detach disk from
+        :param disk_alias: The alias used to identify the disk to detach (e.g. as
+                           returned by attach_disk)
+        """
+        raise NotImplementedError
+
     def get_ingress_and_api_vips(self) -> dict:
         raise NotImplementedError
 

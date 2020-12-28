@@ -1,5 +1,8 @@
 import os
+import random
 import logging
+import tempfile
+
 import libvirt
 import waiting
 from xml.dom import minidom
@@ -79,7 +82,12 @@ class LibvirtController(NodeController):
         return nodes
 
     @staticmethod
-    def format_disk(disk_path):
+    def create_disk(disk_path, disk_size):
+        command = f'qemu-img create -f qcow2 {disk_path} {disk_size}'
+        utils.run_command(command, shell=True)
+
+    @classmethod
+    def format_disk(cls, disk_path):
         logging.info("Formatting disk %s", disk_path)
         if not os.path.exists(disk_path):
             logging.info("Path to %s disk not exists. Skipping", disk_path)
@@ -91,8 +99,40 @@ class LibvirtController(NodeController):
         # Fix for libvirt 6.0.0
         if image_size.isdigit():
             image_size += "G"
-        command = f'qemu-img create -f qcow2 {disk_path} {image_size}'
-        utils.run_command(command, shell=True)
+
+        cls.create_disk(disk_path, image_size)
+
+    def attach_disk(self, node, disk_size):
+        node = self.libvirt_connection.lookupByName(node)
+
+        # <target> dev attribute needs some unique device identifier for the disk (target_dev).
+        # This path will not be the same path used by the guest for this disk.
+        # See https://libvirt.org/formatdomain.html#elementsDisks:~:text=The%20target%20element%20controls%20the%20bus
+        # We generate a random one with a lot of digits so collision is very unlikely
+        # When detaching, we use the alias rather than target_dev,
+        # (unlike virsh attach-disk and detach-disk commands)
+        disk_id = random.randrange(int(1e12))
+        target_dev = f"vdtest{disk_id}"
+        disk_alias = f"ua-testDisk{disk_id}"
+
+        tmp_disk = tempfile.mktemp()
+        self.create_disk(tmp_disk, disk_size)
+
+        node.attachDevice(f"""
+            <disk type='file' device='disk'>
+                <alias name='ua-{disk_alias}'/>
+                <driver name='qemu' type='qcow2'/>
+                <source file='{tmp_disk}'/>
+                <target dev='{target_dev}'/>
+            </disk>
+        """)
+
+        return tmp_disk, disk_alias
+
+    def detach_disk(self, node, disk_alias):
+        node = self.libvirt_connection.lookupByName(node)
+
+        node.detachDeviceAlias(disk_alias)
 
     def restart_node(self, node_name):
         logging.info("Restarting %s", node_name)
