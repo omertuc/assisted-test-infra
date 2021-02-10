@@ -122,8 +122,8 @@ class BaseTest:
         for rule in rules:
             rule.delete()
 
-    @pytest.fixture(scope="function")
-    def attach_disk(self):
+    @staticmethod
+    def attach_disk_flags(persistent):
         modified_nodes = []
 
         def attach(node, disk_size, bootable=False):
@@ -135,6 +135,14 @@ class BaseTest:
 
         for modified_node in modified_nodes:
             modified_node.detach_all_test_disks()
+
+    @pytest.fixture(scope="function")
+    def attach_disk(self):
+        yield from self.attach_disk_flags(persistent=False)
+
+    @pytest.fixture(scope="function")
+    def attach_disk_persistent(self):
+        yield from self.attach_disk_flags(persistent=True)
 
     @pytest.fixture()
     def attach_interface(self):
