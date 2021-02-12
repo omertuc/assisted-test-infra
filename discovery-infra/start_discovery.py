@@ -867,6 +867,11 @@ if __name__ == "__main__":
     if not args.pull_secret:
         raise Exception("Can't install cluster without pull secret, please provide one")
 
+    try:
+        json.loads(args.pull_secret)
+    except json.JSONDecodeError as e:
+        raise ValueError("Invalid pull secret") from e
+
     if args.master_count == 1:
         log.info("Master count is 1, setting workers to 0")
         args.number_of_workers = 0
